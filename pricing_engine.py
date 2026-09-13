@@ -6,6 +6,7 @@ tier hai (koi card nahi chahiye).
 
 import json
 import logging
+import time
 import requests
 
 import config
@@ -43,6 +44,37 @@ Output JSON format exactly:
 """
 
 
+def _call_gemini(input_data: dict) -> dict:
+    payload = {
+        "system_instruction": {
+            "parts": [{"text": SYSTEM_PROMPT}]
+        },
+        "contents": [
+            {
+                "role": "user",
+                "parts": [{"text": json.dumps(input_data, indent=2)}],
+            }
+        ],
+        "generationConfig": {
+            "temperature": 0.3,
+            "maxOutputTokens": 500,
+            "responseMimeType": "application/json",
+        },
+    }
+
+    resp = requests.post(
+        f"{GEMINI_URL}?key={config.GEMINI_API_KEY}",
+        json=payload,
+        timeout=30,
+    )
+    resp.raise_for_status()
+    data = resp.json()
+
+    raw_text = data["candidates"][0]["content"]["parts"][0]["text"].strip()
+    raw_text = raw_text.replace("```json", "").replace("```", "").strip()
+    return json.loads(raw_text)
+
+
 def get_recommendation(route: dict, scraped: dict) -> dict:
     """
     route: entry from config.ROUTES (has base_fare, min_fare, max_fare, etc.)
@@ -59,49 +91,28 @@ def get_recommendation(route: dict, scraped: dict) -> dict:
         "scrape_success": scraped.get("scrape_success", False),
     }
 
-    try:
-        payload = {
-            "system_instruction": {
-                "parts": [{"text": SYSTEM_PROMPT}]
-            },
-            "contents": [
-                {
-                    "role": "user",
-                    "parts": [{"text": json.dumps(input_data, indent=2)}],
-                }
-            ],
-            "generationConfig": {
-                "temperature": 0.3,
-                "maxOutputTokens": 500,
-                "responseMimeType": "application/json",
-            },
-        }
+    last_error = None
+    for attempt in range(3):
+        try:
+            recommendation = _call_gemini(input_data)
 
-        resp = requests.post(
-            f"{GEMINI_URL}?key={config.GEMINI_API_KEY}",
-            json=payload,
-            timeout=30,
-        )
-        resp.raise_for_status()
-        data = resp.json()
+            suggested = recommendation.get("suggested_fare", route["base_fare"])
+            suggested = max(route["min_fare"], min(route["max_fare"], suggested))
+            recommendation["suggested_fare"] = suggested
 
-        raw_text = data["candidates"][0]["content"]["parts"][0]["text"].strip()
-        raw_text = raw_text.replace("```json", "").replace("```", "").strip()
-        recommendation = json.loads(raw_text)
+            return recommendation
+        except Exception as e:
+            last_error = e
+            logger.warning(
+                f"Gemini attempt {attempt + 1} failed for {route['name']}: {e}"
+            )
+            time.sleep(5)
 
-        # double safety-check: min/max ke bahar kabhi na jaye
-        suggested = recommendation.get("suggested_fare", route["base_fare"])
-        suggested = max(route["min_fare"], min(route["max_fare"], suggested))
-        recommendation["suggested_fare"] = suggested
-
-        return recommendation
-
-    except Exception as e:
-        logger.error(f"Gemini recommendation failed for {route['name']}: {e}")
-        return {
-            "route": route["name"],
-            "seat_type": route["seat_type"],
-            "current_fare": route["base_fare"],
-            "suggested_fare": route["base_fare"],
-            "reason": "Data analyze nahi ho paya, fare same rakhi gayi hai.",
-        }
+    logger.error(f"Gemini recommendation failed for {route['name']}: {last_error}")
+    return {
+        "route": route["name"],
+        "seat_type": route["seat_type"],
+        "current_fare": route["base_fare"],
+        "suggested_fare": route["base_fare"],
+        "reason": "Data analyze nahi ho paya, fare same rakhi gayi hai.",
+    }
