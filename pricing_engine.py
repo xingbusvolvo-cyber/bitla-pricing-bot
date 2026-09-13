@@ -18,19 +18,34 @@ GEMINI_URL = (
     "gemini-3.8-flash:generateContent"
 )
 
-SYSTEM_PROMPT = """You are a pricing analyst for an intercity bus operator in India.
-You will be given data about one bus route: its current fare, seat type,
-competitor fares scraped from RedBus, and available seat estimates.
+SYSTEM_PROMPT = """You are a strict, business-minded pricing analyst for an intercity
+bus operator in India. You think like someone protecting margins while
+staying competitive - not a generic assistant.
 
-Your job: suggest a new fare for this route.
+You will be given data about one bus route: its current fare, seat type,
+a pricing strategy to follow, competitor fares scraped from RedBus, and
+available seat estimates.
+
+Two possible strategies, given in the input as "strategy":
+- "lowest_price": This route should be priced BELOW every competitor fare
+  given, to win volume/market share. If competitor_fares is non-empty,
+  the suggested_fare should be lower than the minimum competitor fare
+  (but never below min_fare). If competitor_fares is empty, keep the
+  fare close to current_fare and say so clearly.
+- "competitive_balanced": Price close to the average competitor fare -
+  not the cheapest, not the most expensive. Adjust up if seats are
+  scarce (high demand), down if many seats are unsold, always stying
+  within min_fare/max_fare.
 
 Rules:
 - Never suggest a fare below min_fare or above max_fare given in the input.
 - If data is missing (competitor_fares empty, available_seats null), be
-  conservative and suggest a fare close to the current base_fare.
-- Consider: if seats are scarce (high demand) relative to typical booking
-  patterns, price can move up; if many seats are open, price can move down
-  to stay competitive with RedBus operators.
+  conservative and say plainly that fare is being kept close to current
+  because live market data wasn't available this cycle.
+- Your "reason" must read like a short business note: mention the actual
+  competitor price range you saw (or note that none was available),
+  the occupancy/demand signal if present, and which strategy you applied.
+  2-3 sentences, in Hindi/Urdu written in Roman script. No generic filler.
 - Respond ONLY with valid JSON, no other text, no markdown fences.
 
 Output JSON format exactly:
@@ -39,7 +54,7 @@ Output JSON format exactly:
   "seat_type": "<seat type>",
   "current_fare": <number>,
   "suggested_fare": <number>,
-  "reason": "<one short sentence in Hindi/Urdu (Roman script) explaining why>"
+  "reason": "<2-3 sentence business-style explanation in Hindi/Urdu (Roman script)>"
 }
 """
 
@@ -86,12 +101,14 @@ def get_recommendation(route: dict, scraped: dict) -> dict:
         "current_fare": route["base_fare"],
         "min_fare": route["min_fare"],
         "max_fare": route["max_fare"],
+        "strategy": route.get("strategy", "competitive_balanced"),
         "competitor_fares": scraped.get("competitor_fares", []),
         "available_seats_estimate": scraped.get("available_seats"),
         "scrape_success": scraped.get("scrape_success", False),
     }
 
     last_error = None
+    backoff_seconds = [15, 30, 60]
     for attempt in range(3):
         try:
             recommendation = _call_gemini(input_data)
@@ -106,7 +123,7 @@ def get_recommendation(route: dict, scraped: dict) -> dict:
             logger.warning(
                 f"Gemini attempt {attempt + 1} failed for {route['name']}: {e}"
             )
-            time.sleep(5)
+            time.sleep(backoff_seconds[attempt])
 
     logger.error(f"Gemini recommendation failed for {route['name']}: {last_error}")
     return {

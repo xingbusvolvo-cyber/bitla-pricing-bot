@@ -13,7 +13,7 @@ import schedule
 import config
 from scraper import get_route_data
 from pricing_engine import get_recommendation
-from telegram_notify import send_message, format_recommendation
+from telegram_notify import send_message, format_recommendation, get_new_messages
 
 logging.basicConfig(
     level=logging.INFO,
@@ -33,6 +33,7 @@ def run_check():
         message = format_recommendation(rec)
         send_message(message)
         logger.info(f"Done: {route['name']} -> {rec['suggested_fare']}")
+        time.sleep(20)  # Gemini free-tier rate limit se bachne ke liye gap
 
     send_message("✅ Pricing check complete. Dashboard mein manually update kar lein.")
     logger.info("=== Pricing check complete ===")
@@ -40,7 +41,11 @@ def run_check():
 
 def main():
     logger.info("Bitla Pricing Bot start ho gaya.")
-    send_message("🤖 Bitla Pricing Bot online ho gaya hai.")
+    send_message(
+        "🤖 Bitla Pricing Bot online ho gaya hai.\n"
+        "Kabhi bhi turant check chalane ke liye, mujhe koi bhi message bhej dena "
+        "(jaise 'check')."
+    )
 
     for t in config.CHECK_TIMES:
         schedule.every().day.at(t).do(run_check)
@@ -49,9 +54,18 @@ def main():
     # Startup pe ek baar turant bhi chala do (test ke liye)
     run_check()
 
+    telegram_offset = None
     while True:
         schedule.run_pending()
-        time.sleep(30)
+
+        # Telegram se naye messages check karo - agar koi bhi message
+        # aaye, turant naya check chala do
+        messages, telegram_offset = get_new_messages(telegram_offset)
+        if messages:
+            logger.info(f"Manual trigger received via Telegram: {messages}")
+            run_check()
+
+        time.sleep(3)
 
 
 if __name__ == "__main__":

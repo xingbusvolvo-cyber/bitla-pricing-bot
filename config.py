@@ -22,18 +22,21 @@ ROUTES = [
         "seat_type": "Semi Sleeper",
         "base_fare": 800,
         "redbus_search": "https://www.redbus.in/bus-tickets/delhi-to-manali",
+        "strategy": "lowest_price",
     },
     {
         "name": "Delhi to Kasol",
         "seat_type": "Semi Sleeper",
         "base_fare": 800,
         "redbus_search": "https://www.redbus.in/bus-tickets/delhi-to-kasol",
+        "strategy": "competitive_balanced",
     },
     {
         "name": "Dehradun to Nainital via Haldwani",
         "seat_type": "Seater/Sleeper",
         "base_fare": 800,
         "redbus_search": "https://www.redbus.in/bus-tickets/dehradun-to-nainital",
+        "strategy": "competitive_balanced",
     },
 ]
 

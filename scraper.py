@@ -48,7 +48,10 @@ def get_route_data(route: dict) -> dict:
 
     try:
         with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
+            browser = p.chromium.launch(
+                headless=True,
+                args=["--disable-http2"],
+            )
             page = browser.new_page(
                 user_agent=(
                     "Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 "
