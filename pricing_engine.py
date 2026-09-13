@@ -78,8 +78,9 @@ def _call_gemini(input_data: dict) -> dict:
     }
 
     resp = requests.post(
-        f"{GEMINI_URL}?key={config.GEMINI_API_KEY}",
+        GEMINI_URL,
         json=payload,
+        headers={"x-goog-api-key": config.GEMINI_API_KEY},
         timeout=30,
     )
     resp.raise_for_status()
