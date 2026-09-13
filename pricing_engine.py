@@ -14,7 +14,7 @@ logger = logging.getLogger("pricing_engine")
 
 GEMINI_URL = (
     "https://generativelanguage.googleapis.com/v1beta/models/"
-    "gemini-1.5-flash:generateContent"
+    "gemini-3.8-flash:generateContent"
 )
 
 SYSTEM_PROMPT = """You are a pricing analyst for an intercity bus operator in India.
