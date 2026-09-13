@@ -9,7 +9,7 @@ sirf yahi file edit karo - baaki code touch nahi karna.
 import os
 
 # ---- Secrets (Railway ke "Variables" tab se aayenge, code mein mat likho) ----
-ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
 
