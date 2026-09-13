@@ -33,7 +33,14 @@ ROUTES = [
     },
     {
         "name": "Dehradun to Nainital via Haldwani",
-        "seat_type": "Seater/Sleeper",
+        "seat_type": "Seater",
+        "base_fare": 800,
+        "redbus_search": "https://www.redbus.in/bus-tickets/dehradun-to-nainital",
+        "strategy": "competitive_balanced",
+    },
+    {
+        "name": "Dehradun to Nainital via Haldwani",
+        "seat_type": "Sleeper",
         "base_fare": 800,
         "redbus_search": "https://www.redbus.in/bus-tickets/dehradun-to-nainital",
         "strategy": "competitive_balanced",

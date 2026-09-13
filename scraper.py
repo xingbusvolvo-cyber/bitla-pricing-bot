@@ -58,8 +58,12 @@ def get_route_data(route: dict) -> dict:
                     "(KHTML, like Gecko) Chrome/120.0 Mobile Safari/537.36"
                 )
             )
-            page.goto(route["redbus_search"], timeout=20000)
-            page.wait_for_timeout(4000)  # page ko fully render hone do
+            page.goto(
+                route["redbus_search"],
+                timeout=45000,
+                wait_until="domcontentloaded",
+            )
+            page.wait_for_timeout(6000)  # page ko fully render hone do
 
             # SELECTOR: bus card list - RedBus par ye class time ke sath
             # badal sakti hai. Agar 0 buses milein, ye line check karo.

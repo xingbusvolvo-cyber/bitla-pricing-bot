@@ -28,7 +28,20 @@ def run_check():
 
     for route in config.ROUTES:
         logger.info(f"Checking: {route['name']}")
+        send_message(f"🔍 <b>{route['name']}</b> — RedBus se live data nikal raha hoon...")
+
         scraped = get_route_data(route)
+        if scraped.get("scrape_success"):
+            send_message(
+                f"✅ RedBus data mil gaya ({len(scraped.get('competitor_fares', []))} "
+                f"competitor fares). Ab Gemini se analysis karwa raha hoon..."
+            )
+        else:
+            send_message(
+                "⚠️ RedBus se live data nahi mil paya is baar. Phir bhi Gemini se "
+                "best possible analysis karwa raha hoon..."
+            )
+
         rec = get_recommendation(route, scraped)
         message = format_recommendation(rec)
         send_message(message)
