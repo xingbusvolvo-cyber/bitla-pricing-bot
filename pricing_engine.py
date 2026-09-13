@@ -1,16 +1,21 @@
 """
-Claude (Anthropic API) ko data bhej kar fare recommendation lena.
+Google Gemini (free tier) ko data bhej kar fare recommendation lena.
+Anthropic Claude ki jagah ab Gemini use ho raha hai kyunki iska free
+tier hai (koi card nahi chahiye).
 """
 
 import json
 import logging
-import anthropic
+import requests
 
 import config
 
 logger = logging.getLogger("pricing_engine")
 
-client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY)
+GEMINI_URL = (
+    "https://generativelanguage.googleapis.com/v1beta/models/"
+    "gemini-2.0-flash:generateContent"
+)
 
 SYSTEM_PROMPT = """You are a pricing analyst for an intercity bus operator in India.
 You will be given data about one bus route: its current fare, seat type,
@@ -55,23 +60,34 @@ def get_recommendation(route: dict, scraped: dict) -> dict:
     }
 
     try:
-        message = client.messages.create(
-            model="claude-sonnet-4-6",
-            max_tokens=300,
-            system=SYSTEM_PROMPT,
-            messages=[
+        payload = {
+            "system_instruction": {
+                "parts": [{"text": SYSTEM_PROMPT}]
+            },
+            "contents": [
                 {
                     "role": "user",
-                    "content": json.dumps(input_data, indent=2),
+                    "parts": [{"text": json.dumps(input_data, indent=2)}],
                 }
             ],
+            "generationConfig": {
+                "temperature": 0.3,
+                "maxOutputTokens": 300,
+            },
+        }
+
+        resp = requests.post(
+            f"{GEMINI_URL}?key={config.GEMINI_API_KEY}",
+            json=payload,
+            timeout=30,
         )
-        raw_text = message.content[0].text.strip()
-        # safety: agar Claude ne kabhi ```json fence laga di ho to hata do
+        resp.raise_for_status()
+        data = resp.json()
+
+        raw_text = data["candidates"][0]["content"]["parts"][0]["text"].strip()
         raw_text = raw_text.replace("```json", "").replace("```", "").strip()
         recommendation = json.loads(raw_text)
 
-        # double safety-check: min/max ke bahar kabhi na jaye
         suggested = recommendation.get("suggested_fare", route["base_fare"])
         suggested = max(route["min_fare"], min(route["max_fare"], suggested))
         recommendation["suggested_fare"] = suggested
@@ -79,7 +95,7 @@ def get_recommendation(route: dict, scraped: dict) -> dict:
         return recommendation
 
     except Exception as e:
-        logger.error(f"Claude recommendation failed for {route['name']}: {e}")
+        logger.error(f"Gemini recommendation failed for {route['name']}: {e}")
         return {
             "route": route["name"],
             "seat_type": route["seat_type"],
