@@ -72,7 +72,8 @@ def get_recommendation(route: dict, scraped: dict) -> dict:
             ],
             "generationConfig": {
                 "temperature": 0.3,
-                "maxOutputTokens": 300,
+                "maxOutputTokens": 500,
+                "responseMimeType": "application/json",
             },
         }
 
