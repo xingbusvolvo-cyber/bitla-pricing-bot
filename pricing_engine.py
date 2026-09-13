@@ -14,7 +14,7 @@ logger = logging.getLogger("pricing_engine")
 
 GEMINI_URL = (
     "https://generativelanguage.googleapis.com/v1beta/models/"
-    "gemini-2.0-flash:generateContent"
+    "gemini-1.5-flash:generateContent"
 )
 
 SYSTEM_PROMPT = """You are a pricing analyst for an intercity bus operator in India.
@@ -88,6 +88,7 @@ def get_recommendation(route: dict, scraped: dict) -> dict:
         raw_text = raw_text.replace("```json", "").replace("```", "").strip()
         recommendation = json.loads(raw_text)
 
+        # double safety-check: min/max ke bahar kabhi na jaye
         suggested = recommendation.get("suggested_fare", route["base_fare"])
         suggested = max(route["min_fare"], min(route["max_fare"], suggested))
         recommendation["suggested_fare"] = suggested
