@@ -15,7 +15,7 @@ import config
 logger = logging.getLogger("pricing_engine")
 
 GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/interactions"
-GEMINI_MODEL = "gemini-2.5-flash"
+GEMINI_MODEL = "gemini-3.6-flash"
 
 SYSTEM_PROMPT = """You are the OWNER of an intercity bus operator in India, personally
 deciding today's fare for one route. Think like a business owner protecting
@@ -101,7 +101,18 @@ def _call_gemini(input_data: dict) -> dict:
 
     raw_text = raw_text.strip()
     raw_text = raw_text.replace("```json", "").replace("```", "").strip()
-    return json.loads(raw_text)
+
+    if not raw_text:
+        raise ValueError(
+            f"Gemini returned no model output. Full response: {json.dumps(data)}"
+        )
+
+    try:
+        return json.loads(raw_text)
+    except json.JSONDecodeError as exc:
+        raise ValueError(
+            f"Gemini returned invalid JSON: {raw_text[:2000]}"
+        ) from exc
 
 
 def get_recommendation(route: dict, scraped: dict) -> dict:
