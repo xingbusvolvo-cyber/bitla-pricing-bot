@@ -81,6 +81,10 @@ def _call_gemini(input_data: dict) -> dict:
         },
         timeout=30,
     )
+    if not resp.ok:
+        logger.error(
+            f"Gemini API error {resp.status_code}. Full response: {resp.text}"
+        )
     resp.raise_for_status()
     data = resp.json()
 
