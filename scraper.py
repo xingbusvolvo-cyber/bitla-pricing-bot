@@ -74,8 +74,8 @@ def get_route_data(route: dict) -> dict:
             )
             page.goto(
                 search_url,
-                timeout=30000,
-                wait_until="commit",
+                timeout=45000,
+                wait_until="domcontentloaded",
             )
             page.wait_for_timeout(6000)  # page ko fully render hone do
 
