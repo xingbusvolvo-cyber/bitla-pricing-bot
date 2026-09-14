@@ -1,100 +1,52 @@
 import logging
+import socket
+import subprocess
 import requests
-from playwright.sync_api import sync_playwright
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s | %(levelname)s | %(message)s",
-)
-logger = logging.getLogger("redbus_diagnostic")
+logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
+log = logging.getLogger("redbus_network_test")
+UA = "Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 Chrome/120.0 Mobile Safari/537.36"
 
-UA = (
-    "Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 "
-    "(KHTML, like Gecko) Chrome/120.0 Mobile Safari/537.36"
-)
-
-ROUTE_URL = (
-    "https://www.redbus.in/bus-tickets/delhi-to-manali"
-    "?fromCityName=Delhi&fromCityId=733&srcCountry=IND"
-    "&fromCityType=CITY&toCityName=Manali&toCityId=757"
-    "&destCountry=IND&toCityType=CITY&toCityId=757"
-    "&destCountry=IND&toCityType=CITY"
-    "&onward=15-Sep-2026&doj=15-Sep-2026&ref=home"
-)
-
-def requests_test(url, name):
-    logger.info("========== REQUESTS TEST: %s ==========", name)
+def dns_test(host):
+    log.info("========== DNS: %s ==========", host)
     try:
-        r = requests.get(
-            url,
-            headers={"User-Agent": UA, "Accept": "text/html,application/xhtml+xml"},
-            timeout=15,
-            allow_redirects=True,
+        infos = socket.getaddrinfo(host, 443, type=socket.SOCK_STREAM)
+        ips = sorted(set(x[4][0] for x in infos))
+        log.info("DNS OK | %s", ips)
+    except Exception as e:
+        log.error("DNS FAILED | %s", e)
+
+def requests_test(url):
+    log.info("========== REQUESTS: %s ==========", url)
+    try:
+        r = requests.get(url, headers={"User-Agent": UA}, timeout=(10, 10), allow_redirects=True)
+        log.info("OK | status=%s | final=%s | bytes=%s", r.status_code, r.url, len(r.content))
+    except Exception as e:
+        log.error("FAILED | %s: %s", type(e).__name__, e)
+
+def curl_ipv4_test(url):
+    log.info("========== CURL IPv4: %s ==========", url)
+    try:
+        p = subprocess.run(
+            ["curl", "-4", "-I", "-L", "--max-time", "15", "-A", UA, url],
+            capture_output=True, text=True, timeout=20
         )
-        logger.info("SUCCESS | status=%s | final_url=%s | bytes=%s",
-                    r.status_code, r.url, len(r.content))
-        logger.info("CONTENT-TYPE: %s", r.headers.get("content-type"))
-        logger.info("SERVER: %s", r.headers.get("server"))
+        log.info("curl return_code=%s", p.returncode)
+        if p.stdout:
+            log.info("curl stdout:\n%s", p.stdout[:4000])
+        if p.stderr:
+            log.info("curl stderr:\n%s", p.stderr[:2000])
     except Exception as e:
-        logger.exception("FAILED | %s", e)
-
-def playwright_test(url, name):
-    logger.info("========== PLAYWRIGHT TEST: %s ==========", name)
-    try:
-        with sync_playwright() as p:
-            browser = p.chromium.launch(
-                headless=True,
-                args=["--disable-http2"],
-            )
-            page = browser.new_page(user_agent=UA)
-
-            def on_failed(req):
-                logger.warning(
-                    "REQUEST FAILED | %s | %s",
-                    req.url,
-                    req.failure,
-                )
-
-            def on_response(resp):
-                if "redbus.in" in resp.url:
-                    logger.info(
-                        "RESPONSE | %s | %s | %s",
-                        resp.status,
-                        resp.request.method,
-                        resp.url,
-                    )
-
-            page.on("requestfailed", on_failed)
-            page.on("response", on_response)
-
-            logger.info("Navigating...")
-            response = page.goto(
-                url,
-                timeout=20000,
-                wait_until="domcontentloaded",
-            )
-
-            logger.info(
-                "NAVIGATION SUCCESS | status=%s | final_url=%s",
-                response.status if response else "NO_RESPONSE",
-                page.url,
-            )
-            logger.info("TITLE: %s", page.title())
-            html = page.content()
-            logger.info("HTML BYTES: %s", len(html))
-
-            browser.close()
-
-    except Exception as e:
-        logger.exception("PLAYWRIGHT FAILED | %s", e)
+        log.error("CURL FAILED | %s", e)
 
 if __name__ == "__main__":
-    logger.info("RED BUS RAILWAY DIAGNOSTIC STARTED")
-
-    requests_test("https://www.redbus.in/", "HOMEPAGE")
-    requests_test(ROUTE_URL, "DELHI-MANALI ROUTE")
-
-    playwright_test("https://www.redbus.in/", "HOMEPAGE")
-    playwright_test(ROUTE_URL, "DELHI-MANALI ROUTE")
-
-    logger.info("RED BUS RAILWAY DIAGNOSTIC FINISHED")
+    log.info("========== REDBUS NETWORK DIAGNOSTIC V2 START ==========")
+    for host, url in [
+        ("www.google.com", "https://www.google.com/"),
+        ("example.com", "https://example.com/"),
+        ("www.redbus.in", "https://www.redbus.in/"),
+    ]:
+        dns_test(host)
+        requests_test(url)
+        curl_ipv4_test(url)
+    log.info("========== REDBUS NETWORK DIAGNOSTIC V2 FINISHED ==========")
