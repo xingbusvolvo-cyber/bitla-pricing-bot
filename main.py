@@ -55,21 +55,6 @@ def run_check():
 
 def main():
     logger.info("Bitla Pricing Bot start ho gaya.")
-
-    # Ek baar diagnostic: is API key ke liye Gemini ke exact valid
-    # model names kya hain, taake agar koi model-naam ka masla ho
-    # to logs mein turant dikh jaye.
-    try:
-        list_resp = requests.get(
-            "https://generativelanguage.googleapis.com/v1beta/models",
-            headers={"x-goog-api-key": config.GEMINI_API_KEY},
-            timeout=15,
-        )
-        logger.info(f"Gemini ListModels status: {list_resp.status_code}")
-        logger.info(f"Gemini ListModels body: {list_resp.text[:3000]}")
-    except Exception as e:
-        logger.error(f"Gemini ListModels check failed: {e}")
-
     send_message(
         "🤖 Bitla Pricing Bot online ho gaya hai.\n"
         "Kabhi bhi turant check chalane ke liye, mujhe koi bhi message bhej dena "

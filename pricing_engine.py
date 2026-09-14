@@ -14,10 +14,8 @@ import config
 
 logger = logging.getLogger("pricing_engine")
 
-GEMINI_URL = (
-    "https://generativelanguage.googleapis.com/v1beta/models/"
-    "gemini-2.5-flash:generateContent"
-)
+GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/interactions"
+GEMINI_MODEL = "gemini-2.5-flash"
 
 SYSTEM_PROMPT = """You are the OWNER of an intercity bus operator in India, personally
 deciding today's fare for one route. Think like a business owner protecting
@@ -66,33 +64,38 @@ Output JSON format exactly:
 
 
 def _call_gemini(input_data: dict) -> dict:
+    full_input = SYSTEM_PROMPT + "\n\nInput data:\n" + json.dumps(input_data, indent=2)
+
     payload = {
-        "system_instruction": {
-            "parts": [{"text": SYSTEM_PROMPT}]
-        },
-        "contents": [
-            {
-                "role": "user",
-                "parts": [{"text": json.dumps(input_data, indent=2)}],
-            }
-        ],
-        "generationConfig": {
-            "temperature": 0.3,
-            "maxOutputTokens": 500,
-            "responseMimeType": "application/json",
-        },
+        "model": GEMINI_MODEL,
+        "input": full_input,
     }
 
     resp = requests.post(
         GEMINI_URL,
         json=payload,
-        headers={"x-goog-api-key": config.GEMINI_API_KEY},
+        headers={
+            "x-goog-api-key": config.GEMINI_API_KEY,
+            "Content-Type": "application/json",
+            "Api-Revision": "2026-05-20",
+        },
         timeout=30,
     )
     resp.raise_for_status()
     data = resp.json()
 
-    raw_text = data["candidates"][0]["content"]["parts"][0]["text"].strip()
+    # Naye Interactions API mein jawab "steps" list ke andar aata hai -
+    # sabse aakhri "model_output" step ka text nikalna hai.
+    raw_text = ""
+    for step in reversed(data.get("steps", [])):
+        if step.get("type") == "model_output":
+            for content_item in step.get("content", []):
+                if content_item.get("type") == "text":
+                    raw_text = content_item.get("text", "")
+                    break
+            break
+
+    raw_text = raw_text.strip()
     raw_text = raw_text.replace("```json", "").replace("```", "").strip()
     return json.loads(raw_text)
 
