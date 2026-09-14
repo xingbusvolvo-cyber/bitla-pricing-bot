@@ -58,8 +58,22 @@ def get_route_data(route: dict) -> dict:
                     "(KHTML, like Gecko) Chrome/120.0 Mobile Safari/537.36"
                 )
             )
+            search_url = (
+                f"https://www.redbus.in/bus-tickets/{route['redbus_slug']}"
+                f"?fromCityName={route['from_city_name']}"
+                f"&fromCityId={route['from_city_id']}"
+                f"&srcCountry=IND"
+                f"&fromCityType=CITY"
+                f"&toCityName={route['to_city_name']}"
+                f"&toCityId={route['to_city_id']}"
+                f"&destCountry=IND"
+                f"&toCityType=CITY"
+                f"&onward={tomorrow}"
+                f"&doj={tomorrow}"
+                f"&ref=home"
+            )
             page.goto(
-                route["redbus_search"],
+                search_url,
                 timeout=45000,
                 wait_until="domcontentloaded",
             )
